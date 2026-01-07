@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MNIST Digit Recognizer</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: rgba(255, 255, 255, 0.08);
+            --panel2: rgba(255, 255, 255, 0.12);
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.70);
+            --border: rgba(255, 255, 255, 0.16);
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 600px at 20% 10%, rgba(99, 102, 241, 0.35), transparent 55%),
+                radial-gradient(1000px 700px at 90% 30%, rgba(16, 185, 129, 0.25), transparent 60%),
+                radial-gradient(900px 700px at 40% 100%, rgba(236, 72, 153, 0.18), transparent 55%),
+                var(--bg);
+            display: grid;
+            place-items: center;
+            padding: 28px 16px;
+        }
+
+        .wrap {
+            width: min(980px, 100%);
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 18px;
+        }
+
+        @media (max-width: 860px) {
+            .wrap {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--panel), rgba(255, 255, 255, 0.05));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+            padding: 18px;
+        }
+
+        .title {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: clamp(22px, 3vw, 30px);
+            letter-spacing: -0.02em;
+            margin: 0;
+            line-height: 1.1;
+        }
+
+        .pill {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .hint {
+            color: var(--muted);
+            margin: 0 0 14px 0;
+        }
+
+        .canvas-wrap {
+            display: grid;
+            place-items: center;
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+        }
+
+        canvas {
+            width: 320px;
+            height: 320px;
+            /* responsive size */
+            max-width: 100%;
+            border-radius: 16px;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+            touch-action: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        button {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform .06s ease, background .2s ease, border-color .2s ease;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        button:active {
+            transform: translateY(1px) scale(0.99);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .primary {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.95), rgba(99, 102, 241, 0.65));
+            border-color: rgba(99, 102, 241, 0.9);
+        }
+
+        .primary:hover {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 1), rgba(99, 102, 241, 0.72));
+        }
+
+        .status {
+            margin-left: auto;
+            color: var(--muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+        }
+
+        .dot.ok {
+            background: rgba(16, 185, 129, 0.95);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
+        }
+
+        .dot.err {
+            background: rgba(239, 68, 68, 0.95);
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18);
+        }
+
+        .pred {
+            display: grid;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .big {
+            font-size: 56px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .sub {
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .bar {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.10);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .bar>div {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.95), rgba(99, 102, 241, 0.95));
+            border-radius: 999px;
+            transition: width .25s ease;
+        }
+
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .key {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .small {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .api {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.85);
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 10px 12px;
+            border-radius: 14px;
+            overflow: auto;
+        }
+
+        .grid2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 860px) {
+            .grid2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <!-- Left: drawing -->
+        <section class="card">
+            <div class="title">
+                <h1>MNIST Digit Recognizer</h1>
+                <span class="pill">Draw a digit · 0–9</span>
+            </div>
+            <p class="hint">Draw big and centered. Use a single stroke if you can (works best).</p>
+
+            <div class="canvas-wrap">
+                <!-- Internal resolution 280x280; CSS scales to 320px -->
+                <canvas id="pad" width="280" height="280" aria-label="drawing pad"></canvas>
+            </div>
+
+            <div class="row">
+                <button id="predictBtn" class="primary">Predict</button>
+                <button id="clearBtn">Clear</button>
+                <button id="exampleBtn">Try Example</button>
+
+                <span class="status" id="status">
+                    <span class="dot" id="dot"></span>
+                    <span id="statusText">Ready</span>
+                </span>
+            </div>
+
+            <div class="kbd">
+                Shortcuts:
+                <span class="key">Enter</span> predict
+                <span class="key">C</span> clear
+            </div>
+        </section>
+
+        <!-- Right: results/info -->
+        <section class="card">
+            <div class="title">
+                <h1>Result</h1>
+                <span class="pill" id="latencyPill">— ms</span>
+            </div>
+
+            <div class="pred">
+                <p class="big" id="predDigit">—</p>
+                <p class="sub" id="predText">Draw a digit and hit Predict.</p>
+
+                <div class="bar" title="confidence">
+                    <div id="confBar"></div>
+                </div>
+                <p class="small" id="confText">Confidence: —</p>
+            </div>
+
+            <div class="grid2">
+                <div>
+                    <p class="small"><b>Tip</b>: If it misses, draw thicker, more centered, and don’t touch the border.
+                    </p>
+                    <p class="small"><b>How it works</b>: Your drawing is sent to a local API, preprocessed to
+                        MNIST-style (28×28), then classified by a CNN.</p>
+                </div>
+                <div>
+                    <p class="small"><b>API</b></p>
+                    <div class="api">POST https://mnist-digit-webapp.onrender.com/predict</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const API_URL = "https://mnist-digit-webapp.onrender.com/predict";
+        const HEALTH_URL = "https://mnist-digit-webapp.onrender.com/health";
+
+        const canvas = document.getElementById("pad");
+        const ctx = canvas.getContext("2d");
+
+        const predictBtn = document.getElementById("predictBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const exampleBtn = document.getElementById("exampleBtn");
+
+        const statusText = document.getElementById("statusText");
+        const dot = document.getElementById("dot");
+
+        const predDigit = document.getElementById("predDigit");
+        const predText = document.getElementById("predText");
+        const confBar = document.getElementById("confBar");
+        const confText = document.getElementById("confText");
+        const latencyPill = document.getElementById("latencyPill");
+
+        // init pad
+        function resetPad() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        resetPad();
+
+        // brush
+        ctx.lineWidth = 18;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "black";
+
+        let drawing = false;
+
+        function setStatus(state, text) {
+            statusText.textContent = text;
+            dot.classList.remove("ok", "err");
+            if (state === "ok") dot.classList.add("ok");
+            if (state === "err") dot.classList.add("err");
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function start(e) {
+            drawing = true;
+            const p = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(p.x * (canvas.width / canvas.clientWidth), p.y * (canvas.height / canvas.clientHeight));
+            e.preventDefault();
+        }
+
+        function move(e) {
+            if (!drawing) return;
+            const p = getPos(e);
+            ctx.lineTo(p.x * (canvas.width / canvas.clientWidth), p.y * (canvas.height / canvas.clientHeight));
+            ctx.stroke();
+            e.preventDefault();
+        }
+
+        function end(e) {
+            drawing = false;
+            e.preventDefault();
+        }
+
+        canvas.addEventListener("mousedown", start);
+        canvas.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", end);
+
+        canvas.addEventListener("touchstart", start, { passive: false });
+        canvas.addEventListener("touchmove", move, { passive: false });
+        window.addEventListener("touchend", end, { passive: false });
+
+        clearBtn.onclick = () => {
+            resetPad();
+            predDigit.textContent = "—";
+            predText.textContent = "Cleared. Draw a digit and hit Predict.";
+            confBar.style.width = "0%";
+            confText.textContent = "Confidence: —";
+            latencyPill.textContent = "— ms";
+            setStatus("ok", "Ready");
+        };
+
+        exampleBtn.onclick = () => {
+            resetPad();
+            // draw a simple "5" example
+            ctx.beginPath();
+            ctx.moveTo(70, 70);
+            ctx.lineTo(190, 70);
+            ctx.lineTo(110, 70);
+            ctx.lineTo(110, 135);
+            ctx.quadraticCurveTo(120, 120, 150, 120);
+            ctx.quadraticCurveTo(210, 120, 205, 175);
+            ctx.quadraticCurveTo(200, 240, 110, 220);
+            ctx.stroke();
+            setStatus("ok", "Example loaded");
+        };
+
+        async function checkHealth() {
+            try {
+                const r = await fetch(HEALTH_URL);
+                if (!r.ok) throw new Error("health not ok");
+                setStatus("ok", "API online");
+            } catch {
+                setStatus("err", "API offline");
+            }
+        }
+        checkHealth();
+
+        async function predict() {
+            predictBtn.disabled = true;
+            setStatus("", "Predicting...");
+
+            const t0 = performance.now();
+            const dataUrl = canvas.toDataURL("image/png");
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image_data_url: dataUrl })
+                });
+
+                if (!res.ok) {
+                    const msg = await res.text();
+                    throw new Error(msg);
+                }
+
+                const json = await res.json();
+                const t1 = performance.now();
+
+                const confPct = Math.max(0, Math.min(1, json.confidence)) * 100;
+
+                predDigit.textContent = String(json.prediction);
+                predText.textContent = `Prediction: ${json.prediction}`;
+                confBar.style.width = `${confPct.toFixed(1)}%`;
+                confText.textContent = `Confidence: ${confPct.toFixed(1)}%`;
+                latencyPill.textContent = `${Math.round(t1 - t0)} ms`;
+
+                setStatus("ok", "Done");
+            } catch (e) {
+                predDigit.textContent = "—";
+                predText.textContent = "Prediction failed. Is the API running?";
+                confBar.style.width = "0%";
+                confText.textContent = "Confidence: —";
+                latencyPill.textContent = "— ms";
+                setStatus("err", "Error");
+                console.error(e);
+            } finally {
+                predictBtn.disabled = false;
+            }
+        }
+
+        predictBtn.onclick = predict;
+
+        // keyboard shortcuts
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") predict();
+            if (e.key.toLowerCase() === "c") clearBtn.click();
+        });
+    </script>
+</body>
+
+</html>
